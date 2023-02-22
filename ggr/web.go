@@ -2,13 +2,12 @@ package ggr
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/naoina/denco"
 )
 
-type Handler[T Context] func(ctx T) error
+type Handler[T Context] func(ctx T) any
 
 type Router[T Context] struct {
 	mux      *denco.Mux
@@ -26,6 +25,14 @@ func NewRouter[T Context](new func() T) *Router[T] {
 			MidRecover[T](),
 		},
 		new: new,
+	}
+}
+
+func (ro *Router[T]) Group(name string, mw ...Middleware[T]) *Group[T] {
+	return &Group[T]{
+		ro:   ro,
+		name: name,
+		mw:   mw,
 	}
 }
 
@@ -73,11 +80,6 @@ func (ro *Router[T]) wrap(handler Handler[T]) denco.HandlerFunc {
 		cx.SetResponseWriter(w)
 		cx.SetParams(params)
 		res := handler(cx)
-		switch res.(type) {
-		case error:
-			fmt.Fprintf(w, res.Error())
-		default:
-			json.NewEncoder(w).Encode(res)
-		}
+		json.NewEncoder(w).Encode(res)
 	}
 }
